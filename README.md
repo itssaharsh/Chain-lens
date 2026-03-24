@@ -1,5 +1,7 @@
 # Chain Lens
-Youtube:https://youtu.be/zcn96ZnG7r4
+
+Youtube : https://youtu.be/zcn96ZnG7r4
+
 Chain Lens is a Bitcoin transaction and block analyzer written in Go.
 
 It provides:
