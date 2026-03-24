@@ -1,0 +1,8 @@
+out/
+bin/
+fixtures/blocks/blk*.dat
+fixtures/blocks/rev*.dat
+node_modules/
+__pycache__/
+target/
+.env

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chain Lens - Bitcoin Transaction Visualizer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">⛓️</span>
+                <h1>Chain Lens</h1>
+            </div>
+            <p class="tagline">Understand Bitcoin transactions like never before</p>
+        </header>
+
+        <!-- Input Panel -->
+        <section class="input-panel" id="input-panel">
+            <div class="input-card">
+                <h2>Analyze Bitcoin Data</h2>
+                <p class="helper-text">Paste transaction data or upload block files to visualize</p>
+
+                <div class="input-tabs">
+                    <button class="input-tab active" data-tab="json">Transaction</button>
+                    <button class="input-tab" data-tab="block">Block Files</button>
+                    <button class="input-tab" data-tab="demo">Try Demo</button>
+                </div>
+
+                <!-- Transaction JSON Tab -->
+                <div class="tab-panel active" id="json-panel">
+                    <textarea id="json-input" placeholder='Paste transaction JSON here — either:
+
+1. CLI output JSON (already analyzed):
+{
+  "ok": true,
+  "txid": "abc123...",
+  "vin": [...],
+  "vout": [...]
+}
+
+2. Fixture JSON (will be analyzed via API):
+{
+  "network": "mainnet",
+  "raw_tx": "0200000001...",
+  "prevouts": [...]
+}'></textarea>
+                    <button class="btn-analyze" id="btn-analyze">
+                        <span class="btn-icon">🔍</span>
+                        Visualize Transaction
+                    </button>
+                </div>
+
+                <!-- Block Upload Tab -->
+                <div class="tab-panel" id="block-panel">
+                    <p class="block-upload-info">Upload Bitcoin Core block data files to analyze an entire block.</p>
+                    <div class="file-upload-grid">
+                        <div class="file-upload-item">
+                            <label for="blk-file" class="file-label">
+                                <span class="file-icon">📦</span>
+                                <span class="file-name" id="blk-file-name">Choose blk*.dat</span>
+                                <span class="file-hint">Block data file</span>
+                            </label>
+                            <input type="file" id="blk-file" accept=".dat" class="file-input">
+                        </div>
+                        <div class="file-upload-item">
+                            <label for="rev-file" class="file-label">
+                                <span class="file-icon">↩️</span>
+                                <span class="file-name" id="rev-file-name">Choose rev*.dat</span>
+                                <span class="file-hint">Undo data file</span>
+                            </label>
+                            <input type="file" id="rev-file" accept=".dat" class="file-input">
+                        </div>
+                        <div class="file-upload-item">
+                            <label for="xor-file" class="file-label">
+                                <span class="file-icon">🔑</span>
+                                <span class="file-name" id="xor-file-name">Choose xor.dat</span>
+                                <span class="file-hint">XOR key file (8 bytes)</span>
+                            </label>
+                            <input type="file" id="xor-file" accept=".dat" class="file-input">
+                        </div>
+                    </div>
+                    <button class="btn-analyze" id="btn-analyze-block">
+                        <span class="btn-icon">🧱</span>
+                        Analyze Block
+                    </button>
+                    <div class="block-progress" id="block-progress" style="display:none;">
+                        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+                        <p class="progress-text" id="progress-text">Uploading and analyzing…</p>
+                    </div>
+                </div>
+
+                <!-- Demo Tab -->
+                <div class="tab-panel" id="demo-panel">
+                    <p class="demo-text">Click below to see a demo transaction visualization:</p>
+                    <div class="demo-options">
+                        <button class="demo-btn" data-demo="segwit">SegWit Transaction</button>
+                        <button class="demo-btn" data-demo="legacy">Legacy Transaction</button>
+                        <button class="demo-btn" data-demo="opreturn">OP_RETURN Data</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Transaction Results Panel -->
+        <section class="results-panel" id="results-panel" style="display: none;">
+
+            <!-- Story Section -->
+            <div class="story-section">
+                <h2 class="section-title">📖 The Story of This Transaction</h2>
+
+                <div class="story-cards">
+                    <div class="story-card story-who">
+                        <div class="story-icon">👤→👥</div>
+                        <h3>Who Paid Whom?</h3>
+                        <p class="story-main" id="story-who-main"></p>
+                        <p class="story-detail" id="story-who-detail"></p>
+                    </div>
+
+                    <div class="story-card story-cost">
+                        <div class="story-icon">💸</div>
+                        <h3>What Did It Cost?</h3>
+                        <p class="story-main" id="story-cost-main"></p>
+                        <p class="story-detail" id="story-cost-detail"></p>
+                        <div class="fee-meter" id="fee-meter">
+                            <div class="fee-meter-fill" id="fee-meter-fill"></div>
+                            <span class="fee-meter-label" id="fee-meter-label"></span>
+                        </div>
+                    </div>
+
+                    <div class="story-card story-risk" id="story-risk-card">
+                        <div class="story-icon">🛡️</div>
+                        <h3>Anything to Watch?</h3>
+                        <p class="story-main" id="story-risk-main"></p>
+                        <ul class="risk-list" id="risk-list"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flow Visualization -->
+            <div class="flow-section">
+                <h2 class="section-title">🔄 Money Flow</h2>
+                <p class="section-subtitle">Watch how value moves from senders to recipients</p>
+
+                <div class="flow-container">
+                    <div class="flow-column inputs-column">
+                        <div class="column-header">
+                            <span class="column-icon">📤</span>
+                            <h3>Sources</h3>
+                            <p class="column-subtitle">Where the money came from</p>
+                        </div>
+                        <div class="flow-items" id="inputs-list"></div>
+                        <div class="column-total">
+                            <span>Total In:</span>
+                            <span class="total-value" id="total-in"></span>
+                        </div>
+                    </div>
+
+                    <div class="flow-center">
+                        <div class="flow-lines" id="flow-lines"></div>
+                        <div class="fee-slice" id="fee-slice">
+                            <div class="fee-slice-inner">
+                                <span class="fee-label">Miner Fee</span>
+                                <span class="fee-value" id="fee-value"></span>
+                                <span class="fee-explanation term"
+                                    data-tooltip="The fee paid to Bitcoin miners who process and confirm this transaction. This is the 'missing' amount between inputs and outputs.">What's this?</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flow-column outputs-column">
+                        <div class="column-header">
+                            <span class="column-icon">📥</span>
+                            <h3>Destinations</h3>
+                            <p class="column-subtitle">Where the money went</p>
+                        </div>
+                        <div class="flow-items" id="outputs-list"></div>
+                        <div class="column-total">
+                            <span>Total Out:</span>
+                            <span class="total-value" id="total-out"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="balance-bar-container">
+                    <h4>Where Did The Money Go?</h4>
+                    <div class="balance-bar">
+                        <div class="balance-outputs" id="balance-outputs">
+                            <span id="balance-outputs-label"></span>
+                        </div>
+                        <div class="balance-fee" id="balance-fee">
+                            <span id="balance-fee-label"></span>
+                        </div>
+                    </div>
+                    <div class="balance-legend">
+                        <span class="legend-item"><span class="legend-color outputs"></span> To Recipients</span>
+                        <span class="legend-item"><span class="legend-color fee"></span> Miner Fee (the "missing slice")</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technical Details -->
+            <div class="tech-section">
+                <h2 class="section-title">🔬 Technical Details</h2>
+
+                <div class="tech-grid">
+                    <div class="tech-card tech-card-wide">
+                        <h4>Transaction ID</h4>
+                        <div class="tech-row">
+                            <p class="tech-value monospace" id="tech-txid"></p>
+                            <button class="copy-btn" data-copy="tech-txid" title="Copy to clipboard">📋</button>
+                        </div>
+                    </div>
+
+                    <div class="tech-card tech-card-wide" id="wtxid-card" style="display: none;">
+                        <h4>Witness Transaction ID
+                            <span class="info-icon term" data-tooltip="The wtxid includes witness data in its hash. It's different from txid for SegWit transactions.">ℹ️</span>
+                        </h4>
+                        <div class="tech-row">
+                            <p class="tech-value monospace" id="tech-wtxid"></p>
+                            <button class="copy-btn" data-copy="tech-wtxid" title="Copy to clipboard">📋</button>
+                        </div>
+                    </div>
+
+                    <div class="tech-card">
+                        <h4>Transaction Type</h4>
+                        <p class="tech-value" id="tech-type"></p>
+                        <p class="tech-hint" id="tech-type-hint"></p>
+                    </div>
+
+                    <div class="tech-card">
+                        <h4>Size</h4>
+                        <p class="tech-value"><span id="tech-size"></span> bytes</p>
+                        <p class="tech-hint">Raw transaction size</p>
+                    </div>
+
+                    <div class="tech-card">
+                        <h4>Virtual Size
+                            <span class="info-icon term" data-tooltip="Virtual bytes (vbytes) is the effective size for fee calculation. SegWit transactions have smaller vbytes than actual size because witness data is discounted 75%.">ℹ️</span>
+                        </h4>
+                        <p class="tech-value"><span id="tech-vbytes"></span> <span class="term" data-tooltip="Virtual bytes: the unit used to measure transaction size for fee calculation. 1 vbyte = 4 weight units.">vbytes</span></p>
+                    </div>
+
+                    <div class="tech-card">
+                        <h4>Weight
+                            <span class="info-icon term" data-tooltip="Weight is the raw measure of transaction size. Non-witness data counts 4x, witness data counts 1x. Max block weight: 4,000,000 WU.">ℹ️</span>
+                        </h4>
+                        <p class="tech-value"><span id="tech-weight"></span> <span class="term" data-tooltip="Weight Units (WU): the fundamental unit for measuring transaction size since SegWit. 4 WU = 1 vbyte.">WU</span></p>
+                    </div>
+
+                    <div class="tech-card">
+                        <h4>Fee Rate</h4>
+                        <p class="tech-value"><span id="tech-feerate"></span> <span class="term" data-tooltip="Satoshis per virtual byte: higher rates = faster confirmation. 1-5 = low, 10-20 = normal, 50+ = high priority.">sat/vB</span></p>
+                        <p class="tech-hint" id="fee-rate-hint"></p>
+                    </div>
+
+                    <div class="tech-card">
+                        <h4>Version</h4>
+                        <p class="tech-value">v<span id="tech-version"></span></p>
+                    </div>
+
+                    <div class="tech-card">
+                        <h4>Locktime
+                            <span class="info-icon term" data-tooltip="Locktime prevents the transaction from being mined until a specific block height or time. 0 means no lock.">ℹ️</span>
+                        </h4>
+                        <p class="tech-value" id="tech-locktime"></p>
+                        <p class="tech-hint" id="locktime-hint"></p>
+                    </div>
+
+                    <div class="tech-card" id="rbf-card">
+                        <h4>Replace-by-Fee
+                            <span class="info-icon term" data-tooltip="RBF allows the sender to replace this transaction with a higher-fee version before it confirms. Can be risky to accept unconfirmed RBF transactions.">ℹ️</span>
+                        </h4>
+                        <p class="tech-value" id="tech-rbf"></p>
+                    </div>
+                </div>
+
+                <!-- SegWit Savings -->
+                <div class="segwit-savings" id="segwit-savings" style="display: none;">
+                    <h4>✨ SegWit Savings
+                        <span class="info-icon term" data-tooltip="SegWit (Segregated Witness) is an upgrade that separates signature data ('witness'), allowing more transactions per block and reducing fees.">ℹ️</span>
+                    </h4>
+                    <div class="savings-visual">
+                        <div class="savings-row">
+                            <span class="savings-label">This Transaction:</span>
+                            <div class="savings-bar">
+                                <div class="savings-fill actual" id="savings-actual"></div>
+                            </div>
+                            <span class="savings-value" id="savings-actual-label"></span>
+                        </div>
+                        <div class="savings-row">
+                            <span class="savings-label">If Legacy Format:</span>
+                            <div class="savings-bar">
+                                <div class="savings-fill legacy" id="savings-legacy"></div>
+                            </div>
+                            <span class="savings-value" id="savings-legacy-label"></span>
+                        </div>
+                    </div>
+                    <p class="savings-text" id="savings-text"></p>
+                </div>
+
+                <!-- Raw JSON -->
+                <details class="raw-json-section">
+                    <summary>📄 View Raw JSON</summary>
+                    <pre id="raw-json"></pre>
+                </details>
+            </div>
+
+            <div class="actions">
+                <button class="btn-back" id="btn-back">← Analyze Another Transaction</button>
+            </div>
+        </section>
+
+        <!-- Block Results Panel -->
+        <section class="block-results-panel" id="block-results-panel" style="display: none;">
+            <div id="block-results-content"></div>
+            <div class="actions">
+                <button class="btn-back" id="btn-block-back">← Analyze Another Block</button>
+            </div>
+        </section>
+
+        <!-- Error Panel -->
+        <section class="error-panel" id="error-panel" style="display: none;">
+            <div class="error-card">
+                <span class="error-icon">❌</span>
+                <h2>Oops! Something went wrong</h2>
+                <p class="error-code" id="error-code"></p>
+                <p class="error-message" id="error-message"></p>
+                <button class="btn-back" id="btn-error-back">← Try Again</button>
+            </div>
+        </section>
+
+        <!-- Tooltip Container -->
+        <div class="tooltip" id="tooltip"></div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Chain Lens — Making Bitcoin Understandable</p>
+        </footer>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>
