@@ -60,6 +60,4 @@ Outputs are written to `out/`.
 - `fixtures/`: sample input data
 - `web/static/`: frontend assets
 
-## Notes
 
-This repository is packaged as a standalone project and no longer depends on classroom/grader infrastructure.
